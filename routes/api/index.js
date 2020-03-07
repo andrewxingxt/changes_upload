@@ -116,7 +116,12 @@ router.get('/get', (req, res) => {
 // 			});		
 // 	});
 // });
-router.post('/text', (req, res) => {		
+router.post('/text', (req, res) => {
+	let textRec = 	req.body.text;
+	if(textRec.trim()==""){
+		res.json({status:0,msg:"发布失败"});
+		return;
+	}
 	let moment = new Moment({
 		publishTime: Date.now(),
 		text: req.body.text,
@@ -132,7 +137,7 @@ router.post('/text', (req, res) => {
 				console.log('error', err);
 			} else {
 				console.log('success', doc);
-				res.send(doc.text);
+				res.json({status:1,msg:"发布成功"});
 			}
 	});		
 });

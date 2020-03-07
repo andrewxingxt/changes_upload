@@ -13,7 +13,7 @@ MomentSchema = new mongoose.Schema({
 	gender:     //性别1是男 0是女
 	{
 		type: Number,
-		required: true
+		required: false
 	},
 	imgs: {
 		type: Array,
@@ -29,7 +29,7 @@ MomentSchema = new mongoose.Schema({
 	},
 	user_avatar: {
 		type: String,
-		required: true
+		required: false
 	},
 	zan: {
 		type: Array,
