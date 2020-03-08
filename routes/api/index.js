@@ -1,152 +1,123 @@
 require('../../db/connect');
 var Moment = require('../../db/moment');
 
+var axios = require('axios')
 var fs = require('fs');
 var express = require('express');
 var router = express.Router();
 
 var { initNames, initHeadImgs } = require('./init');
 
-var webRoot = 'http://localhost:8000/';
+var webRoot = 'http://39.105.91.188:8000/';
 
-router.use('*', (req, res, next) => {
-	var cookie = req.headers.cookie;
-	var code;
-	if (/wechat-moments-session-id=[a-z0-9]{16}/.test(cookie)) {
-		code = /wechat-moments-session-id=([a-z0-9]{16})/.exec(cookie)[1];
-		req.code = code;
-	} else {
-		code = Math.random().toString(36).substr(2, 8) + Math.random().toString(36).substr(2, 8);
-		res.setHeader('set-cookie', 'wechat-moments-session-id=' + code);
-		req.code = code;
-	}
-	console.log(req.code);
-	next();
-});
-
-router.get('/get', (req, res) => {
-	Moment.find({}, null, {sort: {'_id': -1}}, (err, docs) => {
-		let contents = docs;
-		Moment.findOne({code: req.code}, null, {sort: {'_id': -1}}, (err, docs) => {
-			let name, headImg;
-			if (docs && docs.name) {
-				name = docs.name;
-				if (docs.headImg) {
-					headImg = docs.headImg;
-				} else {
-					headImg = initHeadImgs[Math.floor(Math.random() * initHeadImgs.length)];
-					let moment = new Moment({
-						publishTime: Date.now(),
-						code: req.code,
-						name: name,
-						headImg: headImg
-					});
-					moment.save((err, doc) => {
-						if (err) {
-							console.log('error', err);
-						} else {
-							console.log('success', doc);
-						}
-					});
-				}
-			} else {
-				name = initNames[Math.floor(Math.random() * initNames.length)];
-				headImg = initHeadImgs[Math.floor(Math.random() * initHeadImgs.length)];
-				let moment = new Moment({
-					publishTime: Date.now(),
-					code: req.code,
-					name: name,
-					headImg: headImg
-				});
-				moment.save((err, doc) => {
-					if (err) {
-						console.log('error', err);
-					} else {
-						console.log('success', doc);
-					}
-				});
-			}
-
-			let responseJson = {
-				name: name,
-				headImg: headImg,
-				contents: contents,
-				code: req.code
+router.post('/get', (req, res) => {
+	Moment.find(
+		{}, 
+		null, 
+		{
+			sort: {'_id': -1}
+			// skip : req.body.skip_num,
+			// limit : 10
+			
+		}, 
+		(err, docs) => {
+			let content = [];
+		docs.forEach(element => {
+			let Json = {
+				_id : element._id,
+				publishTime : element.publishTime,
+				text: element.text,
+				openid: element.code,
+				name: element.user_name,
+				headImg: element.user_avatar,
+				__v: element.__v,
+				zan: element.zan,
+				imgUrls: element.imgs,
 			};
-			res.send(JSON.stringify(responseJson));
-		});		
+			content.push(Json);
+		});
+		let Json = {
+			contents:content
+		}
+		res.send(JSON.stringify(Json));
 	});
 });
-// let name, headImg;
-		// if (docs && docs.name) {
-		// 	name = docs.name;
-		// 	if (docs.headImg) {
-		// 		headImg = docs.headImg;
-		// 	} else {
-		// 		headImg = initHeadImgs[Math.floor(Math.random() * initHeadImgs.length)];
-		// 	}			
-		// } else {
-		// 	name = initNames[Math.floor(Math.random() * initNames.length)];
-		// 	headImg = initHeadImgs[Math.floor(Math.random() * initHeadImgs.length)];
-		// }
-// router.post('/text', (req, res) => {
-// 	Moment.findOne(
-// 		{code: req.code}, 
-// 		null, 
-// 		{sort: {'_id': -1}}, 
-// 		(err, docs) => {
-		
-// 			let moment = new Moment({
-// 				publishTime: Date.now(),
-// 				text: req.body.text,
-// 				imgs: req.body.imgs,
-// 				code: req.body.code,
-// 				user_name: req.body.user_name,
-// 				user_avatar: req.body.user_avatar,
-// 				gender: req.body.gender
-// 			});
-// 			moment.save(
-// 				(err, doc) => {
-// 					if (err) {
-// 						console.log('error', err);
-// 					} else {
-// 						console.log('success', doc);
-// 						res.send(doc.text);
-// 					}
-// 			});		
-// 	});
-// });
 router.post('/text', (req, res) => {
-	let textRec = 	req.body.text;
+	let textRec = req.body.text;
+	let imgs =req.body.imgs;
+	let user_name =req.body.user_name;
+	let user_avatar = req.body.user_avatar;
+	let gender = req.body.gender;
+	let openid = req.body.openid;
+	let js_code = req.body.code;
+	let appid = "wxf0be5003a725ab4c";
+	let secert = "84513565cd99b3895c3dd2c9b31d32f1";
+	let grant_type = "authorization_code";
+
+	
 	if(textRec.trim()==""){
 		res.json({status:0,msg:"发布失败"});
 		return;
 	}
-	let moment = new Moment({
-		publishTime: Date.now(),
-		text: req.body.text,
-		imgs: req.body.imgs,
-		code: req.body.code,
-		user_name: req.body.user_name,
-		user_avatar: req.body.user_avatar,
-		gender: req.body.gender
-	});
-	moment.save(
-		(err, doc) => {
-			if (err) {
-				console.log('error', err);
-			} else {
-				console.log('success', doc);
-				res.json({status:1,msg:"发布成功"});
-			}
-	});		
-});
+	if(openid == null||openid == ""  )
+	{
+		axios.get(
+			"https://api.weixin.qq.com/sns/jscode2session?appid="+appid
+			+"&secret="+secert
+			+"&js_code="+js_code
+			+"&grant_type="+grant_type
+		).then(function (response) {
+			openid 
+			 = response.data.errmsg;
 
+			 let moment = new Moment({
+				publishTime: Date.now(),
+				text: textRec,
+				imgs: imgs,
+				code: openid,
+				user_name: user_name,
+				user_avatar: user_avatar, 
+				gender: gender
+			});
+			moment.save(
+				(err, doc) => {
+					if (err) {
+						console.log('error', err);
+					} else { 
+						res.json({status:1,msg:"发布成功",openid:openid});
+					}
+			});	
+		})
+		.catch(function (error) {
+			console.log(error)
+		})
+	}else{
+		let moment = new Moment({
+			publishTime: Date.now(),
+			text: textRec,
+			imgs: imgs,
+			code: openid,
+			user_name: user_name,
+			user_avatar: user_avatar,
+			gender: gender
+		});
+		moment.save(
+			(err, doc) => {
+				if (err) {
+					console.log('error', err);
+				} else { 
+					res.json({status:1,msg:"发布成功",openid:openid});
+				}
+		});	
+	}
+});
+	
 router.post('/post-img', (req, res) => {
 	var body = [];
 	req.on('data', (chunk) => body.push(chunk));
 	req.on('end', () => {
 		body = Buffer.concat(body).toString();
+		console.log(body+"接收图片内容");
 		body = body.replace(/^data:image\/\w+;base64,/, '');
 		let randomFilename = Date.now() + Math.random().toString(36).substr(2, 8) + '.png';
 		let bodyBuffer = new Buffer(body, 'base64');
@@ -164,7 +135,6 @@ router.post('/post-img', (req, res) => {
 });
 
 router.post('/zan', (req, res) => {
-	// console.log(req.body);
 	Moment.findOne({_id: req.body._id}, (err, doc) => {
 		if (err) throw err;
 		let zan = doc.zan;
